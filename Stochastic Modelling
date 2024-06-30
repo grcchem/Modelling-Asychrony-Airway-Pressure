@@ -1,0 +1,303 @@
+% Comparison of actual setting with recommended one / 3D plot of actual setting
+
+clear
+close all
+% load('Struct_P7D2.mat', 'struct')
+% BW = 70.2; % Patient body weight
+
+load('Struct_P20.mat', 'struct')
+BW = 60; % Patient body weight
+%
+inx = 1 ;
+for BN = 501 : 14500 % size(struct,1)-1
+    Param(inx,:) = struct(inx).Param;
+    Actual_mlperb(inx,:) = max(struct(inx).Breath(:,3));
+%     Actual_breathtime(inx,:) = (struct(inx).Breath(:,4));
+
+% finding actual setting
+    n = round(struct(BN).Breath(end,5)./60 , 0) ; % 
+    Actual_RR = 60 / ((struct(BN).Breath(end,5) - struct(BN-500).Breath(end,5)) / 500) ;
+    E = struct(BN).Param(1,1);
+    R = struct(BN).Param(1,2);
+    Actual_VT = max(struct(BN).Breath(:,3));
+    Actual_BreathTime = max(struct(BN).Breath(:,4)) ;
+    Actual_PIP = max(struct(BN).Breath(:,2));
+    Actual_PEEP = min(struct(BN).Breath(:,2));
+    Actual_IE = (struct(BN).InsEnd) / (size(struct(BN).Breath(:,1),1) - struct(BN).InsEnd) ;
+    if Actual_IE >= 1 % gt(Actual_IE,1) 
+        Actual_IE = 1;
+        elseif Actual_IE >= 0.5 && Actual_IE < 1
+        Actual_IE = 0.5 ;
+        elseif Actual_IE >= 0.3 && Actual_IE < 0.5
+        Actual_IE = 0.33 ;    
+        elseif Actual_IE < 0.25
+        Actual_IE = 0.25 ;
+    end
+    Actual_Vt = Actual_VT * 1000 ./ BW ;
+    Actual_Min_Vol = max(Actual_VT) * Actual_RR; 
+    Actual_DP = Actual_PIP - Actual_PEEP ;
+    Actual = round([round(Actual_Vt,0) Actual_VT Actual_Min_Vol round(Actual_RR,0) Actual_IE round(Actual_PEEP,0) Actual_PIP Actual_DP ],2) ;
+
+    Act_S(inx,:) = Actual;
+    inx = inx+1;
+    end
+    
+Actual_S = Act_S(1:250:14000,:) ; % selecting one breath from each 15 mins interval
+
+for i = 1:56
+    Act_PIP(:,i)  = Act_S((i*250)-249 : i*250, 7) ;
+end
+
+%%
+
+figure
+H = bar3(Actual_S', 'g') ;
+for j = 1: size(Actual_S,1)  
+    if  Actual_S(j,1) >= 4 && Actual_S(j,1) <= 8  && Actual_S(j,4) <= 20 ...
+        && Actual_S(j,4) >= 12 && Actual_S(j,5) >= 0.25 && Actual_S(j,5) <= 1 
+        H(j).FaceColor = 'g';    
+    else 
+        H(j).FaceColor = 'r';          
+    end
+end
+xlabel('Time[15 mins]','FontWeight','Bold','FontSize',12)
+ylabel('Setting','FontWeight','Bold','FontSize',12)
+zlabel('Values','FontWeight','Bold','FontSize',12)
+set(gca,'yticklabel',({'V (ml/Kg)','VT (l/breath)','Min.Vol', 'BPM','IE Ratio','PEEP', 'PIP','DP'}))
+
+
+
+%%
+
+
+Elast = Param(:,1).*(Param(:,1)>0);
+indice = find(abs(Elast)>60);
+Elast(indice) = NaN;
+Elastance = reshape(Elast(1:14000),[250,56]) ;
+boxplot(Elastance,'PlotStyle','compact','symbol','')
+xlabel('Time [15 mins]','FontWeight','Bold','FontSize',16)
+ylabel('Elastance [cmH_2O/l]','FontWeight','Bold','FontSize',16)
+% legend ('Elastance [cmH_2O/l]','Location','southeast','FontSize',16)
+grid on
+ylim([5 50])
+
+figure
+Resist = Param(:,2).*(Param(:,2)>0);
+indices = find(abs(Resist)>60);
+Resist(indices) = NaN;
+Resistance = reshape(Resist(1:14000),[250,56]) ;
+boxplot(Resistance,'PlotStyle','compact','symbol','')
+xlabel('Time [15 mins]','FontWeight','Bold','FontSize',16)
+ylabel('Resistance [cmH_2Os/l]','FontWeight','Bold','FontSize',16)
+% legend ('Resistance [cmH_2Os/l]','Location','southeast','FontSize',16)
+grid on
+ylim([0 20])
+
+Actual_V = Actual_mlperb * 1000 ./ BW ;
+Actual_VperBW = reshape(Actual_V(1:14000),[250,56]) ;
+figure
+hold on
+boxplot(Actual_VperBW,'PlotStyle','compact','symbol','')
+xlabel('Time [15 mins]','FontWeight','Bold','FontSize',16)
+ylabel('Actual Volume as per BW','FontWeight','Bold','FontSize',16)
+% legend ('Volume (ml/Kg)','Location','southeast','FontSize',16)
+grid on
+ylim([2 10])
+xpatch = [0 size(Actual_VperBW,2)+1 size(Actual_VperBW,2)+1 0]; 
+ypatch = [8 8 10 10];
+patch(xpatch,ypatch,'red','FaceAlpha',.3)
+xpatch = [0 size(Actual_VperBW,2)+1 size(Actual_VperBW,2)+1 0]; 
+ypatch = [2 2 4 4];
+patch(xpatch,ypatch,'red','FaceAlpha',.3)
+
+figure
+hold on
+plot(Actual_S(:,6),'b*-','linewidth', 1.5)
+xlabel('Time [15 mins]','FontWeight','Bold','FontSize',12)
+ylabel('PEEP [cmH_2O]','FontWeight','Bold','FontSize',12)
+legend ('PEEP [cmH_2O]','Location','northeast')
+grid on
+ylim([0 20])
+xlim([0 size(Actual_S,1)+1])
+xpatch = [0 size(Actual_S,1)+1 size(Actual_S,1)+1 0]; 
+ypatch = [15 15 20 20];
+patch(xpatch,ypatch,'red','FaceAlpha',.3)
+xpatch = [0 size(Actual_S,1)+1 size(Actual_S,1)+1 0]; 
+ypatch = [0 0 5 5];
+patch(xpatch,ypatch,'red','FaceAlpha',.3)
+
+
+figure
+hold on
+boxplot(Act_PIP,'PlotStyle','compact','symbol','')
+xlabel('Time [15 mins]','FontWeight','Bold','FontSize',12)
+ylabel('Actual PIP [cmH_2O/l])','FontWeight','Bold','FontSize',12)
+ylim([12 30])
+grid on
+
+
+%% 3D Bar plot
+
+% figure
+% Y = Actual_S;
+% h = bar3(Y);
+% cm = get(gcf,'colormap');  % Use the current colormap.
+% cnt = 0;
+% 
+% for jj = 1:length(h)
+%     xd = get(h(jj),'xdata');
+%     yd = get(h(jj),'ydata');
+%     zd = get(h(jj),'zdata');
+%     delete(h(jj))    
+%     idx = [0;find(all(isnan(xd),2))];
+% 
+%     if jj == 1
+%         S = zeros(length(h)*(length(idx)-1),1);
+%         dv = floor(size(cm,1)/length(S));
+%     end
+% 
+%     for ii = 1:length(idx)-1
+%         cnt = cnt + 1;
+%         S(cnt) = surface(xd(idx(ii)+1:idx(ii+1)-1,:),...
+%                          yd(idx(ii)+1:idx(ii+1)-1,:),...
+%                          zd(idx(ii)+1:idx(ii+1)-1,:),...
+%                          'facecolor',cm((cnt-1)*dv+1,:));
+%     end
+% end
+% 
+% Y(:,3) = Y(:,3).*1000 ;
+% Y(:,4) = Y(:,4).*10 ;
+% Y(:,6) = Y(:,6).*100 ;
+% Z=Y(:);
+% for i= 1: length(Z)
+%         if Z(i) >= 4 && Z(i) <= 8 || Z(i) >= 5000 && Z(i) <= 8000 || Z(i) >= 120 && Z(i) <= 200  || Z(i) >= 0.25 && Z(i) <= 1 ...
+%                  ||  Z(i) >= min(Y(:,6)) && Z(i) <= max(Y(:,6))  || Z(i) >= min(Actual_S(:,7)) && Z(i) <= max(Actual_S(:,7)) ...
+%                  || Z(i) >= min(Actual_S(:,8)) && Z(i) <= max(Actual_S(:,8))
+%              
+%             set(S(i),'facecolor','green')
+%         else
+%             set(S(i),'facecolor','red')
+%         end
+% end
+% ylabel('Time[15 mins]','FontWeight','Bold','FontSize',12)
+% xlabel('Setting','FontWeight','Bold','FontSize',12)
+% zlabel('Values','FontWeight','Bold','FontSize',12)
+% set(gca,'xticklabel',({'V (ml/Kg)','VT (l/breath)','Min.Vol', 'BPM','IE Ratio','PEEP', 'PIP','DP'}))
+% view(0,90)  % XY
+% camroll(90)
+
+figure
+% [PEEP RR VT Qmax Qwaveform]
+Y = [Actual_S(:,3) Actual_S(:,4) Actual_S(:,8) Actual_S(:,1) Actual_S(:,2)];
+% Y = Actual_S;
+h = bar3(Y);
+cm = get(gcf,'colormap');  % Use the current colormap.
+cnt = 0;
+
+for jj = 1:length(h)
+    xd = get(h(jj),'xdata');
+    yd = get(h(jj),'ydata');
+    zd = get(h(jj),'zdata');
+    delete(h(jj))    
+    idx = [0;find(all(isnan(xd),2))];
+
+    if jj == 1
+        S = zeros(length(h)*(length(idx)-1),1);
+        dv = floor(size(cm,1)/length(S));
+    end
+
+    for ii = 1:length(idx)-1
+        cnt = cnt + 1;
+        S(cnt) = surface(xd(idx(ii)+1:idx(ii+1)-1,:),...
+                         yd(idx(ii)+1:idx(ii+1)-1,:),...
+                         zd(idx(ii)+1:idx(ii+1)-1,:),...
+                         'facecolor',cm((cnt-1)*dv+1,:));
+    end
+end
+
+Y(:,3) = Y(:,3).*1000 ;
+Y(:,2) = Y(:,2).*100 ;
+% Y(:,6) = Y(:,6).*100 ;
+Z=Y(:);
+for i= 1: length(Z)
+        if Z(i) >= 0 && Z(i) <= 10 || Z(i) >= 1200 && Z(i) <= 2000  || Z(i) >= 5000 && Z(i) <= 15000  ...
+                  || Z(i) >= min(Y(:,4)) && Z(i) <= max(Y(:,5))
+             
+            set(S(i),'facecolor','green')
+        else
+            set(S(i),'facecolor','red')
+        end
+end
+ylabel('Time[15 mins]','FontWeight','Bold','FontSize',12)
+xlabel('Setting','FontWeight','Bold','FontSize',12)
+zlabel('Values','FontWeight','Bold','FontSize',12)
+set(gca,'xticklabel',({'Qwaveform', 'Qmax (l/s)','VT (ml/Kg)','Respiratory Rate (BPM)', 'PEEP (cmH_2O)' }))
+view(0,90)  % XY
+camroll(90)
+
+% 
+% %% cdf plot of elastance
+% 
+% figure
+% for ii = 1:size(Elastance,2)
+%     hold on
+%     h1 = cdfplot(min(Elastance));
+%     h2 = cdfplot(max(Elastance));
+%     h3 = cdfplot(Elastance(:,ii)) ;
+% end
+% set( h1, 'LineStyle', '-', 'Color', 'r','linewidth', 2);
+% set( h2, 'LineStyle', '-', 'Color', 'r','linewidth', 2);
+% set( h3, 'LineStyle', '--');
+% 
+% 
+% %% Minute Volume
+% 
+% % for n = 1 : 14000
+% %     for k = 1: size(struct(n).Breath(:,1),1)
+% %         if rem( round(struct(n).TrueBStart,0) , 60) == 0 ;
+% %             BNum(:,n) = 1 ;
+% %             else
+% %             BNum(:,n) = 0 ;    
+% %         end
+% %     end
+% % end
+% % Indices = find(BNum==1) ;
+% 
+% inx = 1 ;
+% for BN = 501 : 14500 % size(struct,1)-1
+%     for k = 1 : size((struct(BN).Breath(:,4)),1)
+%         
+%         [maxV(inx,:) ID(inx,:)] = max(struct(BN).Breath(:,3));
+%          Actual_breathtime(inx,:)  =   struct(BN).Breath(end,4) ;
+%     end  
+%     inx = inx+1;
+% end
+% 
+% Actual_btime= reshape(Actual_breathtime(1:14000),[250,56]) ;
+% Actual_mlb = reshape(Actual_mlperb(1:14000),[250,56]) ;
+% Minvolume = (sum(Actual_mlb,1) ./ sum(Actual_btime,1)) .* 60  ;
+% Minvolume_1 = (sum(Actual_mlb(1:50,:),1) ./ sum(Actual_btime(1:50,:),1)) .* 60  ; 
+% Minvolume_2 = (sum(Actual_mlb(51:100,:),1) ./ sum(Actual_btime(51:100,:),1)) .* 60  ; 
+% Minvolume_3 = (sum(Actual_mlb(101:150,:),1) ./ sum(Actual_btime(101:150,:),1)) .* 60  ; 
+% Minvolume_4 = (sum(Actual_mlb(151:200,:),1) ./ sum(Actual_btime(151:200,:),1)) .* 60  ; 
+% Minvolume_5 = (sum(Actual_mlb(201:250,:),1) ./ sum(Actual_btime(201:250,:),1)) .* 60 ; 
+% Min_Vol = [Minvolume_1; Minvolume_2; Minvolume_3; Minvolume_4; Minvolume_5 ] ;
+% figure
+% hold on
+% boxplot(Min_Vol,'PlotStyle','compact','symbol','')
+% xlabel('Time [15 min]','FontWeight','Bold','FontSize',12)
+% ylabel('Minute Volume (l/min)','FontWeight','Bold','FontSize',12)
+% legend ('Minute Volume (l/min)','Location','southeast')
+% grid on
+% xpatch = [0 size(Min_Vol,2)+1 size(Min_Vol,2)+1 0]; 
+% ypatch = [8 8 12 12];
+% patch(xpatch,ypatch,'red','FaceAlpha',.3)
+% xpatch = [0 size(Min_Vol,2)+1 size(Min_Vol,2)+1 0]; 
+% ypatch = [1 1 5 5];
+% ylim([2 12])
+% patch(xpatch,ypatch,'red','FaceAlpha',.3)
+% 
+% 
+% %%
+% 
+% 
